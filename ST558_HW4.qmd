@@ -1,0 +1,226 @@
+---
+title: "ST558_HW4"
+author: "Jayesh Thakur"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+# ST-558 Homework 4
+
+```{r}
+
+# install.packages("tidyverse")
+library(tibble)
+library(dplyr)
+
+# install.packages("readr")
+library(readr)
+
+# install.packages("readxl")
+library(readxl)
+```
+
+## Task 1: Conceptual Questions
+
+1.  **If your working directory is 'myfolder/homework/', what relative path would you specify to get the file located at 'myfolder/MyData.csv'?**
+
+> The relative path to the file `MyData.csv` would be '../MyData.csv'.
+
+2.  **What are the major benefits of using R projects?**
+
+> R projects organize our work by automatically setting working directory and keeping all relevant files in single location. It also ensures reproducibility across system as it saves settings like library paths and environment variables in `.Rproj` files. Also as it can be integrated with version control system it gets easier to commit the files.
+
+3.  **What is git and what is github?**
+
+> Git is a version control system that helps track changes in code,which is useful for devs to traceback or collaborate. GitHub is an online platform that hosts Git repositories which makes developer easier to maintain updates and it also has some different project management tools.
+
+4.  **What are the two main differences between a tibble and a data.frame?**
+
+> -   **Printing**: Tibbles print only the first 10 rows and the first few columns and hence it is easier to work with large datasets. Data frames print the entire datase.
+
+> -   **Subsetting**: When you extract a single column from a tibble the output is also a tibble , while when we extract column from data frame it might return a vector.
+
+5.  **Rewrite the following nested function call using BaseR’s chaining operator:** arrange(filter(select(as_tibble(iris), starts_with("Petal"), Species), Petal.Length \< 1.55), Species)
+
+> ```{r}
+> as_tibble(iris) |>
+>   select(starts_with("Petal"), Species) |>
+>   filter(Petal.Length < 1.55) |>
+>   arrange(Species)
+> ```
+
+## Task 2: Reading Delimited Data
+
+### Glass Data
+
+1.  **Reading the data from "glass.data"** and assiginging the column names and display tibble
+
+```{r}
+glass_data <- read.table("glass.data", sep = ",", header = FALSE)
+
+colnames(glass_data) <- c("ID", "RI", "Na", "Mg", "Al", "Si", "K", "Ca", "Ba", "Fe", "Type_of_glass")
+
+glass_data <- as_tibble(glass_data)
+
+glass_data
+```
+
+2.  **Overwrite the Type_of_glass column variable values** with meaningful strings and display updated tibble.
+
+```{r}
+# 
+glass_data <- glass_data %>%
+  mutate(Type_of_glass = ifelse(Type_of_glass == 1, "building_windows_float_processed",
+                        ifelse(Type_of_glass == 2, "building_windows_non_float_processed",
+                        ifelse(Type_of_glass == 3, "vehicle_windows_float_processed",
+                        ifelse(Type_of_glass == 4, "vehicle_windows_non_float_processed",
+                        ifelse(Type_of_glass == 5, "containers",
+                        ifelse(Type_of_glass == 6, "tableware", 
+                        ifelse(Type_of_glass == 7, "headlamps", NA))))))))
+
+glass_data
+```
+
+3.  **Filtering the glass data based on type of glass** which is either 'Tableware' or 'headlamps' and displaying the tibble.
+
+```{r}
+filtered_glass_data <- glass_data %>%
+  filter(Fe < 0.2, Type_of_glass %in% c("tableware", "headlamps"))
+
+filtered_glass_data
+```
+
+### Yeast Data
+
+1.  **Reading the data from "yeast.data" and assiginging the column names** and display tibble
+
+```{r}
+yeast_data <- read.table("yeast.data", sep = "", header = FALSE)
+
+colnames(yeast_data) <- c("seq_name", "mcg", "gvh", "alm", "mit", "erl", "pox", "vac", "nuc", "class")
+
+yeast_data <- as_tibble(yeast_data)
+
+yeast_data
+```
+
+2.  **Removing seq_name and nuc column** from tibble.
+
+```{r}
+yeast_cleaned <- yeast_data %>%
+  as_tibble() %>%
+  select(-seq_name, -nuc)
+  
+yeast_cleaned
+```
+
+3.  I am using across() to **summarize the mean and median of each column across the "class" group**, also name of column will be "calculated function_column name"
+
+```{r}
+yeast_summary <- yeast_cleaned %>%
+  group_by(class) %>%
+  summarise(
+    across(c(mcg, gvh, alm, mit, erl, pox, vac),
+           list(mean = mean, median = median),
+           .names = "{.col}_{.fn}")
+  )
+
+yeast_summary
+```
+
+## Task 3: Combining Excel and Delimited Data
+
+1.  **Read data from 'white-wine.xlsx**' using read_excel() function.
+
+```{r}
+white_wine <- read_excel("white-wine.xlsx", sheet = 1)
+
+white_wine <- as_tibble(white_wine)
+print(white_wine)
+```
+
+2.  **Read second sheet** with option 'sheet = 2' to **retrieve the column names**.
+
+```{r}
+alt_column_names <- read_excel("white-wine.xlsx", sheet = 2)
+
+colnames(white_wine) <- alt_column_names[[1]]
+
+print(white_wine)
+```
+
+3.  **Add column 'type' for white wine** to indicate type of wine.
+
+```{r}
+white_wine <- white_wine %>%
+  mutate(type = "white")
+
+print(white_wine)
+```
+
+4.  **Reading data from 'red-wine.csv'** using read_csv2() which is for semicolon-delimited files and using column names from second sheet. Also some columns are 'chr' type hence I have used mutate() to change them to numeric 'double' format. Also adding 'type' as 'red' similar to white wine tibble above.
+
+```{r}
+red_wine <- read_csv2("red-wine.csv")
+
+colnames(red_wine) <- alt_column_names[[1]]
+
+red_wine <- red_wine %>%
+  mutate(volatile_acidity = as.numeric(volatile_acidity),
+         citric_acid = as.numeric(citric_acid),
+         chlorides = as.numeric(chlorides),
+         density = as.numeric(density),
+         sulphates = as.numeric(sulphates))
+
+red_wine <- red_wine %>%
+  mutate(type = "red")
+
+print(red_wine)
+```
+
+5.  **Combine both the tibbles** using bind_rows()
+
+```{r}
+wine <- bind_rows(white_wine, red_wine)
+
+print(wine)
+```
+
+6.  **Filter data** using filter() with quality more than 6.5 and alc value less than 132.
+
+```{r}
+high_quality_wines <- wine %>%
+  filter(quality > 6.5, alcohol < 132)
+
+print(high_quality_wines)
+```
+
+7.  **Sorting the data** based on quality descending with arrange().
+
+```{r}
+high_quality_wines <- high_quality_wines %>%
+  arrange(desc(quality))
+
+print(high_quality_wines)
+```
+
+8.  **Selecting only the columns** that contains acid, the alcohol variable, the type variable, and the quality variable
+
+```{r}
+selected_wines <- high_quality_wines %>%
+  select(contains("acid"), alcohol, type, quality)
+
+print(selected_wines)
+```
+
+9.  **Adding mean and standard deviation of alcohol** for each quality grouping
+
+```{r}
+sum_wine <- selected_wines %>%
+  group_by(quality) %>%
+  mutate(mean_alcohol = mean(alcohol),
+         sd_alcohol = sd(alcohol))
+
+print(sum_wine)
+```
